@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Life Scanner</title><script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script><script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script><style>
+body{
+margin:0;
+background:#0a0a0a;
+color:white;
+font-family:Courier New, monospace;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+height:100vh;
+}
+
+.scanner-container{
+position:relative;
+border:2px solid #00ff00;
+box-shadow:0 0 20px rgba(0,255,0,0.3);
+border-radius:10px;
+overflow:hidden;
+}
+
+video,canvas{
+display:block;
+}
+
+canvas{
+position:absolute;
+top:0;
+left:0;
+}
+
+.info-panel{
+margin-top:20px;
+padding:15px;
+background:rgba(255,255,255,0.05);
+border-radius:8px;
+width:90%;
+max-width:500px;
+text-align:center;
+}
+
+.status{
+color:#00ff00;
+font-weight:bold;
+margin-bottom:10px;
+}
+
+#details{
+font-size:0.9rem;
+color:#aaa;
+}
+
+.loading{
+position:absolute;
+inset:0;
+background:black;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:10;
+font-size:18px;
+}
+</style></head><body><div class="scanner-container"><div id="loading" class="loading">
+Initializing AI Model...
+</div><video id="video" width="640" height="480" autoplay muted playsinline></video>
+<canvas id="canvas" width="640" height="480"></canvas>
+
+</div><div class="info-panel">
+<div id="status" class="status">System: Starting...</div>
+<div id="details">Allow camera permission to start scanning.</div>
+</div><script>
+
+const video=document.getElementById("video")
+const canvas=document.getElementById("canvas")
+const ctx=canvas.getContext("2d")
+
+const statusText=document.getElementById("status")
+const detailsText=document.getElementById("details")
+const loading=document.getElementById("loading")
+
+let model
+
+const livingThings=[
+'person','dog','cat','bird','horse','sheep',
+'cow','elephant','bear','zebra','giraffe'
+]
+
+async function startCamera(){
+
+try{
+
+const stream=await navigator.mediaDevices.getUserMedia({
+video:{facingMode:"environment"},
+audio:false
+})
+
+video.srcObject=stream
+
+video.onloadeddata=()=>{
+detectFrame()
+}
+
+}
+catch(error){
+
+statusText.innerText="Camera Error"
+detailsText.innerText="Please allow camera permission."
+
+}
+
+}
+
+async function setup(){
+
+statusText.innerText="Loading AI..."
+
+model=await cocoSsd.load()
+
+loading.style.display="none"
+
+statusText.innerText="System: Active"
+
+startCamera()
+
+}
+
+async function detectFrame(){
+
+const predictions=await model.detect(video)
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+let detected=[]
+
+predictions.forEach(prediction=>{
+
+if(livingThings.includes(prediction.class)){
+
+ctx.strokeStyle="#00ff00"
+ctx.lineWidth=3
+ctx.strokeRect(...prediction.bbox)
+
+ctx.fillStyle="#00ff00"
+ctx.font="16px Courier New"
+
+ctx.fillText(
+prediction.class+" "+Math.round(prediction.score*100)+"%",
+prediction.bbox[0],
+prediction.bbox[1]-5
+)
+
+detected.push(prediction.class)
+
+}
+
+})
+
+if(detected.length>0){
+
+detailsText.innerHTML="Detected: "+[...new Set(detected)].join(", ")
+
+}else{
+
+detailsText.innerText="Scanning... No lifeforms detected"
+
+}
+
+setTimeout(detectFrame,120)
+
+}
+
+setup()
+
+</script></body>
+</html>
